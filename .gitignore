@@ -1,2 +1,5 @@
 movie_reviews_now.csv
 movie_reviews.csv
+__pycache__
+data
+movie_reviews_all_time.csv

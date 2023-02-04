@@ -1,5 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
+import re
 
 # from selenium import webdriver
 # from selenium.webdriver.chrome.options import Options
@@ -29,7 +30,7 @@ headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 #         print(e)
 #     return
 
-def get_movie_reviews(kind='all_time'):
+def movie_info(kind='all_time'):
     # movie_name_code_info = get_movie_list_now_in_theathers()
     reviews = []
     if kind == 'all_time':
@@ -42,9 +43,23 @@ def get_movie_reviews(kind='all_time'):
         
     return reviews
 
+def movie_review(kind='all_time'):
+    reviews = []
+
+    if kind == 'all_time':
+        movie_name_code_info = get_movie_list_all_time()
+    elif kind == 'now':
+        movie_name_code_info = get_movie_list_now_in_theathers()
+
+
+    for movie_name, movie_code in movie_name_code_info.items():
+        reviews.append(get_movie_reviews(movie_name, movie_code))
+
+    return reviews
+
 def get_movie_list_all_time():
     try:
-        MOVIE_LAST_PAGE = 11
+        MOVIE_LAST_PAGE = 2
         # {영화이름: 영화코드}
         movie_name_code_info = {}
 
@@ -61,6 +76,7 @@ def get_movie_list_all_time():
     except:
         print('Error: Can\'t get movie list of all time')
         return None
+
 
 def get_movie_list_now_in_theathers():
     try:
@@ -83,22 +99,23 @@ def get_movie_list_now_in_theathers():
     except:
         print('Error: Can\'t get movie list')
         return None
-    
+
 
 def get_comments_star(movie_name, movie_code):
     try:
         COMMENTS_LAST_PAGE = 301
         # 겹치는 리뷰 페이지는 더이상 스크래핑 하지 않게 하기 위한 변수
-        before_soup = get_soup(f'https://movie.naver.com/').get_text()
+        before_page = None
 
-        reviewes = []
+        reviews = []
 
         for page in range(1, COMMENTS_LAST_PAGE):
             url = f'https://movie.naver.com/movie/bi/mi/pointWriteFormList.naver?code={movie_code}&type=after&isActualPointWriteExecute=false&isMileageSubscriptionAlready=false&isMileageSubscriptionReject=false&page={page}'
             soup = get_soup(url)
 
-            if before_soup == soup.get_text():
+            if same_page(before_page, soup):
                 break
+
             for review in soup.select('div.score_result ul li'):
                 score = review.select_one('div.star_score > em').get_text().strip()
                 comment = review.select_one('div.score_reple > p > span:last-child').get_text().strip()
@@ -106,15 +123,53 @@ def get_comments_star(movie_name, movie_code):
                 date = review.select_one('div.score_reple > dl > dt > em:last-child').get_text().strip()
 
                 # {점수, 댓글}
-                reviewes.append({'title': movie_name, 'score': score, 'comment': comment, 'user_id': user_id, 'date': date})
+                reviews.append({'title': movie_name, 'score': score, 'comment': comment, 'user_id': user_id, 'date': date})
         
-            before_soup = soup.get_text()
+            before_page = soup.get_text()
             
-        return reviewes
+        return reviews
     
     except:
         print('Error: Can\'t get comments and stars')
 
+
+def get_movie_reviews(movie_name, movie_code):
+    try:
+
+        before_page = None
+        reviews = {'title': movie_name, 'info': []}
+        # 영화 평점순 리스트
+        for page in range(1, 11):
+            url = f'https://movie.naver.com/movie/bi/mi/review.naver?code={movie_code}&page={page}'
+            print(url, movie_name, movie_code)
+            soup = get_soup(url)
+
+            if same_page(before_page, soup):
+                break
+        # 영화 리뷰 리스트
+            review_list = soup.select('div.review ul.rvw_list_area li')
+
+            for review in review_list:
+                p = re.compile(r'\d+') # 숫자만 추출
+                review_nid = p.findall(review.a.get('onclick'))[0]
+                print(review_nid)
+                review_url = f'https://movie.naver.com/movie/bi/mi/reviewread.naver?nid={review_nid}&code={movie_code}&order=#tab'
+
+                review_soup = get_soup(review_url)
+
+                content = review_soup.select_one('div.review div.user_tx_area').get_text().strip()
+                user_id = review_soup.select_one('div.review div.board_title ul li:last-child a em').get_text().strip()
+                view_count = review_soup.select_one('div.review div.board_title div.user_tx_info span > em').get_text().strip()
+                date = review_soup.select_one('div.review div.top_behavior span.wrt_date').get_text().strip()
+                reviews['info'].append({'content': content, 'view_count': view_count, 'date': date, 'user_id': user_id})
+
+            before_page = soup.get_text()
+
+        return reviews
+
+    except TypeError as e:
+        print(f'Error: Can\'t get movie reviews: {e}')
+        return None
 
 def get_soup(url):
     try:
@@ -125,3 +180,10 @@ def get_soup(url):
     except:
         print('Error: Can\'t get soup')
         return None
+
+
+def same_page(before_page, soup):
+    if before_page == soup.get_text():
+        return True
+    else:
+        return False
