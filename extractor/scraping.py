@@ -35,9 +35,9 @@ def movie_info(kind='all_time', page=1):
     # movie_name_code_info = get_movie_list_now_in_theathers()
     reviews = []
     if kind == 'all_time':
-        movie_name_code_info = get_movie_list_all_time(page)
+        movie_name_code_info = get_movie_list(kind, page, date='20230206')
     elif kind == 'now':
-        movie_name_code_info = get_movie_list_now_in_theathers()
+        movie_name_code_info = get_movie_list(kind, 1, date='20230206')
 
     for movie_name, movie_code in movie_name_code_info.items():
         reviews.append(get_comments_star(movie_name, movie_code))
@@ -48,9 +48,9 @@ def movie_reviews(kind='all_time', page=1):
     p = re.compile(r'[\/:*?:"<>|]')
 
     if kind == 'all_time':
-        movie_name_code_info = get_movie_list_all_time(page)
+        movie_name_code_info = get_movie_list(kind, page, date='20230206')
     elif kind == 'now':
-        movie_name_code_info = get_movie_list_now_in_theathers()
+        movie_name_code_info = get_movie_list(kind, 1, date='20230206')
 
     for movie_name, movie_code in movie_name_code_info.items():
         review = get_movie_reviews(movie_name, movie_code)
@@ -62,13 +62,17 @@ def movie_reviews(kind='all_time', page=1):
 
     
 
-def get_movie_list_all_time(MOVIE_LAST_PAGE = 1):
+def get_movie_list(type='all_time', MOVIE_LAST_PAGE = 1, date='20230206'):
     try:
         # {영화이름: 영화코드}
         movie_name_code_info = {}
+        if type == 'all_time':
+            type = 'pnt'
+        elif type == 'now':
+            type = 'cur'
 
         for page in range(1, MOVIE_LAST_PAGE + 1):
-            url = f'https://movie.naver.com/movie/sdb/rank/rmovie.naver?sel=pnt&date=20230202&page={page}'
+            url = f'https://movie.naver.com/movie/sdb/rank/rmovie.naver?sel={type}&date={date}&page={page}'
             soup = get_soup(url)
             for movie in soup.select('td.title div.tit5 a'):
                 movie_name = movie['title']
@@ -83,27 +87,27 @@ def get_movie_list_all_time(MOVIE_LAST_PAGE = 1):
         return None
 
 
-def get_movie_list_now_in_theathers():
-    try:
-        # 평점순 영화 리스트
-        url = 'https://movie.naver.com/movie/running/current.naver?view=list&tab=normal&order=point'
+# def get_movie_list_now_in_theathers():
+#     try:
+#         # 평점순 영화 리스트
+#         url = 'https://movie.naver.com/movie/sdb/rank/rmovie.naver?sel=cur&date=20230206'
 
-        soup = get_soup(url)
-        movie_list = soup.select('div.lst_wrap > ul.lst_detail_t1 li')
+#         soup = get_soup(url)
+#         movie_list = soup.select('div.lst_wrap > ul.lst_detail_t1 li')
         
-        # {영화이름: 영화코드}
-        movie_name_code_info = {}
+#         # {영화이름: 영화코드}
+#         movie_name_code_info = {}
         
-        for movie in movie_list:
-            movie_name = movie.select_one('dl.lst_dsc > dt.tit > a').get_text()
-            movie_code = movie.select_one('dl.lst_dsc > dt.tit > a')['href'].split('=')[1]
-            movie_name_code_info[movie_name] = movie_code
+#         for movie in movie_list:
+#             movie_name = movie.select_one('dl.lst_dsc > dt.tit > a').get_text()
+#             movie_code = movie.select_one('dl.lst_dsc > dt.tit > a')['href'].split('=')[1]
+#             movie_name_code_info[movie_name] = movie_code
 
-        return movie_name_code_info
+#         return movie_name_code_info
 
-    except:
-        print('Error: Can\'t get movie list')
-        return None
+#     except:
+#         print('Error: Can\'t get movie list')
+#         return None
 
 
 def get_comments_star(movie_name, movie_code):
