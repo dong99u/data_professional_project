@@ -3,66 +3,55 @@ from bs4 import BeautifulSoup
 import re
 import data_processing 
 
-# from selenium import webdriver
-# from selenium.webdriver.chrome.options import Options
-# from selenium.webdriver.chrome.service import Service
-# from webdriver_manager.chrome import ChromeDriverManager
-# from selenium.webdriver.common.by import By
-
-
 headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36'}
 
 
-# def webdriver():
-#     options = Options()
-#     options.add_argument("disable-infobars")
-#     options.add_argument("disable-extensions")
-#     options.add_argument("start-maximized")
-#     options.add_argument('disable-gpu')
-#     options.add_argument('headless')
-#     options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36")
-
-#     # Selenium 4.0 - load webdriver
-#     try:
-#         s = Service(ChromeDriverManager().install())
-#         browser = webdriver.Chrome(service=s, options=options)
-#         return browser
-#     except Exception as e:
-#         print(e)
-#     return
-
-def movie_info(kind='all_time', page=1):
+def movie_short_comments(kind='all_time', page=1, date='20230206'):
+    p = re.compile(r'[\/:*?:"<>|]')
     # movie_name_code_info = get_movie_list_now_in_theathers()
     reviews = []
     if kind == 'all_time':
-        movie_name_code_info = get_movie_list(kind, page, date='20230206')
+        movie_name_code_info = get_movie_list(kind, page, date)
     elif kind == 'now':
-        movie_name_code_info = get_movie_list(kind, 1, date='20230206')
+        movie_name_code_info = get_movie_list(kind, 1, date)
 
     for movie_name, movie_code in movie_name_code_info.items():
         reviews.append(get_comments_star(movie_name, movie_code))
         
+    for review in reviews:
+        if review:
+            movie_name = review[0]['title']
+            movie_name = p.sub('', movie_name)
+            data_processing.save_to_csv(f'comment/{movie_name}', review, ['title', 'user_id', 'score', 'comment', 'date'])
+
     return reviews
 
-def movie_reviews(kind='all_time', page=1):
+
+
+def movie_reviews(kind='all_time', page=1, date='20230206'):
     p = re.compile(r'[\/:*?:"<>|]')
 
     if kind == 'all_time':
-        movie_name_code_info = get_movie_list(kind, page, date='20230206')
+        movie_name_code_info = get_movie_list(kind, page, date)
     elif kind == 'now':
-        movie_name_code_info = get_movie_list(kind, 1, date='20230206')
+        movie_name_code_info = get_movie_list(kind, 1, date)
 
     for movie_name, movie_code in movie_name_code_info.items():
         review = get_movie_reviews(movie_name, movie_code)
         if review:
             movie_name = p.sub('', movie_name)
-            data_processing.save_to_csv(movie_name, review['reviews'], ['user_id', 'star_score', 'view_count', 'recommend_count', 'main_text'])
+            data_processing.save_to_csv(f"review/{movie_name}", review['reviews'], ['user_id', 'star_score', 'view_count', 'recommend_count', 'main_text'])
         else:
             print(movie_name, movie_code, 'No review - None')
 
-    
 
-def get_movie_list(type='all_time', MOVIE_LAST_PAGE = 1, date='20230206'):
+
+# type == 'all_time':
+# 모든 영화의 랭킹 리스트를 가져온다.
+# type == 'now':
+# 현재 상영중인 영화의 랭킹 리스트를 가져온다.
+# MOVIE_LAST_PAGE 까지 가져옴
+def get_movie_list(type, MOVIE_LAST_PAGE = 1, date='20230206'):
     try:
         # {영화이름: 영화코드}
         movie_name_code_info = {}
@@ -78,7 +67,7 @@ def get_movie_list(type='all_time', MOVIE_LAST_PAGE = 1, date='20230206'):
                 movie_name = movie['title']
                 movie_code = movie['href'].split('=')[1]
                 movie_name_code_info[movie_name] = movie_code
-    
+
     # {'탑건: 매버릭': '81888', '클라우스': '191613', '가버나움': '174830', '그린 북': '171539'
         return movie_name_code_info
 
@@ -87,29 +76,7 @@ def get_movie_list(type='all_time', MOVIE_LAST_PAGE = 1, date='20230206'):
         return None
 
 
-# def get_movie_list_now_in_theathers():
-#     try:
-#         # 평점순 영화 리스트
-#         url = 'https://movie.naver.com/movie/sdb/rank/rmovie.naver?sel=cur&date=20230206'
-
-#         soup = get_soup(url)
-#         movie_list = soup.select('div.lst_wrap > ul.lst_detail_t1 li')
-        
-#         # {영화이름: 영화코드}
-#         movie_name_code_info = {}
-        
-#         for movie in movie_list:
-#             movie_name = movie.select_one('dl.lst_dsc > dt.tit > a').get_text()
-#             movie_code = movie.select_one('dl.lst_dsc > dt.tit > a')['href'].split('=')[1]
-#             movie_name_code_info[movie_name] = movie_code
-
-#         return movie_name_code_info
-
-#     except:
-#         print('Error: Can\'t get movie list')
-#         return None
-
-
+# 파라미터 movie_name 영화의 짧은 코멘트와 점수를 최대 300페이지까지 스크래핑
 def get_comments_star(movie_name, movie_code):
     try:
         COMMENTS_LAST_PAGE = 301
@@ -137,7 +104,7 @@ def get_comments_star(movie_name, movie_code):
             before_page = soup.get_text()
             
         return reviews
-    
+
     except:
         print('Error: Can\'t get comments and stars')
 
@@ -183,6 +150,8 @@ def get_nid(url, page):
         print(f'Error: Can\'t get review code: {e}')
         return None
 
+
+# 리뷰의 내용을 리턴함
 def review_content(movie_code, nid):
     try:
         url = f'https://movie.naver.com/movie/bi/mi/reviewread.naver?nid={nid}&code={movie_code}&order=#tab'
@@ -204,7 +173,7 @@ def review_content(movie_code, nid):
         print(f'Error: Can\'t get review content: {e}')
         return None
 
-
+# resquest를 보내고 soup을 리턴함
 def get_soup(url):
     try:
         response = requests.get(url, headers=headers)
@@ -215,14 +184,14 @@ def get_soup(url):
         print('Error: Can\'t get soup')
         return None
 
-
+# 이전 페이지와 현재 페이지가 같은지 확인
 def same_page(before_page, soup):
     if before_page == soup.get_text():
         return True
     else:
         return False
 
-
+# 영화 리뷰 현재 페이지의 마지막 페이지를 리턴함
 def paging(url):
     try:
         soup = get_soup(url)
