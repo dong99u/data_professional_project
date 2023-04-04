@@ -1,7 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 import re
-import data_processing 
+import save_data 
 
 headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36'}
 
@@ -22,7 +22,7 @@ def movie_short_comments(kind='all_time', page=1, date='20230206'):
         if review:
             movie_name = review[0]['title']
             movie_name = p.sub('', movie_name)
-            data_processing.save_to_csv(f'comment/{movie_name}', review, ['title', 'user_id', 'score', 'comment', 'date'])
+            save_data.save_to_csv(f'comment/{movie_name}', review, ['title', 'user_id', 'score', 'comment', 'date'])
 
     return reviews
 
@@ -40,7 +40,7 @@ def movie_reviews(kind='all_time', page=1, date='20230206'):
         review = get_movie_reviews(movie_name, movie_code)
         if review:
             movie_name = p.sub('', movie_name)
-            data_processing.save_to_csv(f"review/{movie_name}", review['reviews'], ['user_id', 'star_score', 'view_count', 'recommend_count', 'main_text'])
+            save_data.save_to_csv(f"review/{movie_name}", review['reviews'], ['user_id', 'star_score', 'view_count', 'recommend_count', 'main_text'])
         else:
             print(movie_name, movie_code, 'No review - None')
 
